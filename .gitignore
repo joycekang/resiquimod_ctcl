@@ -1,3 +1,7 @@
 .DS_Store
 .ipynb_checkpoints/
 **/.ipynb_checkpoints/
+
+# renv - commit renv.lock but not the local package cache
+renv/library/
+renv/staging/

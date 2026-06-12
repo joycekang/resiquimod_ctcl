@@ -46,8 +46,8 @@ All notebooks are in `_notebooks/` and are numbered in order of execution. Each 
 | `03_merge_datasets_label_cell_types.ipynb` | R | Integration of FFPE and snRNA-seq datasets via Harmony, joint clustering, and consensus cell type labeling across the merged 71,302-cell dataset |
 | `04_Figure1_plots.ipynb` | R | Figure 1 visualizations: UMAPs, cell type proportion analysis, marker gene heatmaps/dot plots, and statistical comparison of lesional vs. non-lesional cell composition |
 | `05_DE_LesUntxvsNL_Wk0.ipynb` | R | Differential expression between untreated lesional and non-lesional skin at baseline (Week 0), with GSEA pathway analysis per cell type |
-| `06_HTS_responder_status.ipynb` | R | Treatment responder classification using high-throughput TCR sequencing: quantifies malignant T-cell clone abundance changes from Week 0 to Week 8/24 |
-| `06_HTS_clonal_tracking.ipynb` | R | TCR clonal tracking analysis: benign T-cell recruitment dynamics and correlation with malignant clone clearance |
+| `06a_HTS_responder_status.ipynb` | R | Treatment responder classification using high-throughput TCR sequencing: quantifies malignant T-cell clone abundance changes from Week 0 to Week 8/24 |
+| `06b_HTS_clonal_tracking.ipynb` | R | TCR clonal tracking analysis: benign T-cell recruitment dynamics and correlation with malignant clone clearance |
 | `07_myeloid_subclusters_TLR.ipynb` | R | Myeloid cell subclustering (7 subtypes including TissueMoDCs, cDCs, Langerhans, pDCs) and TLR7/8 expression analysis |
 | `08_T_subclusters.ipynb` | R | T-cell subclustering into 8 subtypes with marker gene characterization |
 | `09_DE_Treated.ipynb` | R | Differential expression in treated lesions: Week 8 vs. Week 0, responders vs. non-responders comparisons, with GSEA pathway enrichment |
@@ -72,9 +72,18 @@ All notebooks are in `_notebooks/` and are numbered in order of execution. Each 
 
 ## Environment Setup
 
-### R (v4.3.1)
+### R (v4.4.3)
 
-Install required packages:
+This project uses [`renv`](https://rstudio.github.io/renv/) for reproducible package management. The exact package versions are recorded in `renv.lock`.
+
+To restore the environment:
+
+```r
+install.packages("renv")
+renv::restore()  # installs all packages from renv.lock
+```
+
+If you prefer to install manually:
 
 ```r
 install.packages(c("Seurat", "ggplot2", "ggrepel", "data.table", "tidyverse",
@@ -89,7 +98,6 @@ BiocManager::install(c("MAST", "SingleCellExperiment", "limma",
 # GitHub packages
 remotes::install_github("immunogenomics/harmony")
 remotes::install_github("immunogenomics/presto")
-remotes::install_github("satijalab/seurat-wrappers")
 
 # MSigDB gene sets
 install.packages("msigdbr")
@@ -135,7 +143,8 @@ Intermediate `.rds` objects are saved between steps so individual notebooks can 
         ↓                          │
 04_Figure1_plots.ipynb             │
 05_DE_LesUntxvsNL_Wk0.ipynb       │ (reads snRNA obj + merged labels)
-06_HTS_*.ipynb                     │ (independent — reads only HTS TSVs)
+06a_HTS_responder_status.ipynb     │ (independent — reads only HTS TSVs)
+06b_HTS_clonal_tracking.ipynb      │ (independent — reads only HTS TSVs)
 07_myeloid_subclusters_TLR.ipynb   │ (reads merged obj)
 08_T_subclusters.ipynb             │ (reads merged obj)
 09_DE_Treated.ipynb                │ (reads FFPE obj + merged labels)

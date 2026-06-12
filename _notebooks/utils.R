@@ -479,6 +479,18 @@ run_GSEA_on_list <- function(markers_list, out_dir, label = '', gene_set, plot_w
     invisible(results_list)
 }
 
+# Save a named list of DE result data frames to CSVs for IPA pathway analysis.
+# out_dir: directory path (created if needed), one CSV per cell type.
+save_to_csvs <- function(reslist, out_dir) {
+    dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+    for (name in names(reslist)) {
+        DEres <- reslist[[name]]
+        DEres$cell_type <- name
+        DEres$gene <- rownames(DEres)
+        write.csv(DEres, file.path(out_dir, paste0(name, '.csv')), quote = FALSE)
+    }
+}
+
 # Create a function to run GSEA and create plot for one cell type
 run_gsea_analysis <- function(de_results, cell_type, gene_set) {
     
