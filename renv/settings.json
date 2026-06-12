@@ -1,6 +1,6 @@
 {
   "bioconductor.version": null,
-  "external.libraries": [],
+  "external.libraries": ["/opt/anaconda3/envs/resiq/lib/R/library"],
   "ignored.packages": [],
   "lockfile.sanitize": true,
   "package.dependency.fields": [
