@@ -91,7 +91,7 @@ plot_genes_hex <- function(
     # Get expression data based on feature type
     if (feature_type == "gene") {
         # Get data from assay slot
-        exp_data <- GetAssayData(seurat_obj, slot = "data")[features, ]
+        exp_data <- GetAssayData(seurat_obj, layer = "data")[features, ]
         exp_data <- as.data.frame(t(as.matrix(exp_data)))
     } else if (feature_type == "module") {
         # Get data from meta.data slot
@@ -190,7 +190,7 @@ plot_split_hex <- function(
     
     # Get expression data based on feature type
     if (feature_type == "gene") {
-        exp_data <- GetAssayData(seurat_obj, slot = "data")[features, ]
+        exp_data <- GetAssayData(seurat_obj, layer = "data")[features, ]
         exp_data <- as.data.frame(t(as.matrix(exp_data)))
     } else if (feature_type == "module") {
         exp_data <- seurat_obj@meta.data[, features, drop = FALSE]
@@ -346,7 +346,7 @@ plot_gene_violins <- function(
     plots <- lapply(genes, function(gene) {
         # Extract data for plotting
         plot_data <- data.frame(
-            expression = GetAssayData(seurat_obj, slot = "data")[gene,],
+            expression = GetAssayData(seurat_obj, layer = "data")[gene,],
             split_var = seurat_obj@meta.data[[split_by]],
             group_var = seurat_obj@meta.data[[group_by]]
         )
@@ -378,6 +378,105 @@ plot_gene_violins <- function(
     # Combine plots
     combined_plot <- wrap_plots(plots, ncol = ncol)
     return(combined_plot)
+}
+
+cell_type_levels = c('Keratinocyte undiff.', 'Keratinocyte diff.', 'Melanocyte', 'Hair follicle',
+                     'Dermal adipocyte', 'Fibroblast', 'Pericyte', 'Vascular EC', 'Lymphatic EC',
+                     'Mast', 'Myeloid', 'T cell')
+
+# Load snRNA-seq object with updated cell type labels from the merged dataset.
+# Returns a Seurat object with harmonized cell_type labels and UMAP coordinates.
+load_snRNA_obj <- function(
+    rds_path = '../_data/snRNAseq/obj_43854cells_labeled_v2.rds',
+    labels_path = '../_data/obj_merged_snRNA_labels.csv'
+) {
+    obj <- readRDS(rds_path)
+    labels <- read.csv(labels_path, row.names = 1)
+    obj$cell_type <- NULL
+    stopifnot(all(obj$Cell == labels$Cell))
+    rownames(labels) <- labels$Cell
+    labels$Cell <- NULL
+    obj <- AddMetaData(obj, labels)
+    obj@meta.data$cell_type <- factor(obj@meta.data$cell_type, levels = cell_type_levels)
+    return(obj)
+}
+
+# Load FFPE scRNA-seq object with updated cell type labels from the merged dataset.
+load_ffpe_obj <- function(
+    rds_path = '../_data/obj_27448cells_labeled_v2.rds',
+    labels_path = '../_data/obj_merged_scRNA_labels.csv'
+) {
+    obj <- readRDS(rds_path)
+    labels <- read.csv(labels_path, row.names = 1)
+    obj$cell_type <- NULL
+    stopifnot(all(obj$Cell == labels$Cell))
+    rownames(labels) <- labels$Cell
+    labels$Cell <- NULL
+    obj <- AddMetaData(obj, labels)
+    obj@meta.data$cell_type <- factor(obj@meta.data$cell_type, levels = cell_type_levels)
+    return(obj)
+}
+
+# Load MSigDB gene sets (hallmark + KEGG canonical + GO:BP).
+# Returns a list with $hallmark and $all (combined) data frames.
+load_gene_sets <- function() {
+    hallmark  <- msigdbr(species = "Homo sapiens", category = "H")
+    canonical <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
+    go        <- msigdbr(species = "Homo sapiens", category = "C5", subcategory = "GO:BP")
+
+    all_gene_sets <- rbind(
+        hallmark  %>% mutate(collection = "Hallmark"),
+        canonical %>% mutate(collection = "Canonical-Kegg"),
+        go        %>% mutate(collection = "GO-BP")
+    )
+    hallmark_gene_sets <- hallmark %>% mutate(collection = "Hallmark")
+
+    return(list(hallmark = hallmark_gene_sets, all = all_gene_sets))
+}
+
+# Volcano plot for one cell type's DE results.
+# markers_ct: data frame with avg_log2FC, p_val_adj, gene columns
+# tolabel:    subset of markers_ct rows to highlight and label
+# title:      plot title (typically the cell type name)
+# nx, ny:     nudge for label repulsion
+volcano_plot <- function(markers_ct, tolabel, title = '', nx = 1.5, ny = 5) {
+    ggplot(markers_ct, aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+        geom_point(size = 0.2) +
+        geom_point(data = tolabel, size = 0.2, col = 'red') +
+        geom_text_repel(
+            data = tolabel,
+            aes(label = gene),
+            size = 2,
+            segment.size = 0.1, force = 6, min.segment.length = 0.1, max.overlaps = 20,
+            nudge_x = nx * sign(tolabel$avg_log2FC),
+            nudge_y = ny, segment.color = 'grey48', seed = 1
+        ) +
+        geom_vline(xintercept = 0, col = 'grey42', linewidth = 0.2) +
+        theme_bw(base_size = 12) +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        labs(title = title, x = 'Average log2FC', y = '-log10(Padj)')
+}
+
+# Run GSEA for all cell types in a named list of DE results and save plots.
+# markers_list: named list of DE result data frames (one per cell type)
+# out_dir:      output directory (e.g. "../_results/GSEA_Tx/hallmark_gs")
+# label:        filename prefix (e.g. "allW8vsW0")
+# gene_set:     msigdbr gene set data frame (use load_gene_sets()$hallmark or $all)
+# plot_width:   width of saved PDF in inches
+run_GSEA_on_list <- function(markers_list, out_dir, label = '', gene_set, plot_width = 9) {
+    dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+    results_list <- list()
+    for (cell_type in names(markers_list)) {
+        message(paste("Processing", cell_type))
+        results_list[[cell_type]] <- run_gsea_analysis(markers_list[[cell_type]], cell_type, gene_set)
+        ggsave(
+            filename = file.path(out_dir, paste0(label, "_gsea_plot_", cell_type, ".pdf")),
+            plot = results_list[[cell_type]]$plot,
+            width = plot_width,
+            height = 5
+        )
+    }
+    invisible(results_list)
 }
 
 # Create a function to run GSEA and create plot for one cell type

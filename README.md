@@ -11,9 +11,32 @@ This project analyzes two complementary single-cell RNA-seq datasets from CTCL p
 
 After quality control and doublet removal, the merged dataset contains ~71,000 cells spanning 12 cell types: keratinocytes (undifferentiated and differentiated), fibroblasts, T cells, myeloid cells, vascular and lymphatic endothelial cells, pericytes, melanocytes, hair follicle cells, mast cells, and B cells.
 
+## Repository Structure
+
+```
+resiquimod_ctcl/
+├── _notebooks/          # Analysis notebooks (numbered in execution order)
+│   ├── utils.R          # Shared R helper functions and color palettes
+│   ├── 01_Seurat_ffpe.ipynb
+│   ├── 01_Seurat_nuc-seq.ipynb
+│   ├── 02_run_scrublet.ipynb
+│   ├── 03_merge_datasets_label_cell_types.ipynb
+│   ├── 04_Figure1_plots.ipynb
+│   ├── 05_DE_LesUntxvsNL_Wk0.ipynb
+│   ├── 06_HTS_responder_status.ipynb
+│   ├── 06_HTS_clonal_tracking.ipynb
+│   ├── 07_myeloid_subclusters_TLR.ipynb
+│   ├── 08_T_subclusters.ipynb
+│   ├── 09_DE_Treated.ipynb
+│   └── 10_DE_Untreated.ipynb
+├── _data/               # Input data (not committed; see Data Structure below)
+├── _figures/            # Output figures (PDFs)
+└── _results/            # Output tables and GSEA plots
+```
+
 ## Analysis Pipeline
 
-All notebooks are in `_notebooks/` and are numbered in order of execution.
+All notebooks are in `_notebooks/` and are numbered in order of execution. Each notebook begins with a markdown cell documenting its purpose, inputs, outputs, and dependencies.
 
 | Notebook | Language | Description |
 |----------|----------|-------------|
@@ -28,14 +51,95 @@ All notebooks are in `_notebooks/` and are numbered in order of execution.
 | `07_myeloid_subclusters_TLR.ipynb` | R | Myeloid cell subclustering (7 subtypes including TissueMoDCs, cDCs, Langerhans, pDCs) and TLR7/8 expression analysis |
 | `08_T_subclusters.ipynb` | R | T-cell subclustering into 8 subtypes with marker gene characterization |
 | `09_DE_Treated.ipynb` | R | Differential expression in treated lesions: Week 8 vs. Week 0, responders vs. non-responders comparisons, with GSEA pathway enrichment |
-| `utils.R` | R | Shared helper functions: library loading, color palettes, hex-bin UMAP plotting, violin plots, and GSEA wrapper |
+| `10_DE_Untreated.ipynb` | R | Differential expression in untreated lesional skin over time (Week 0 → Week 24), with GSEA pathway enrichment |
+| `utils.R` | R | Shared helper functions (see below) |
 
-## Key Dependencies
+### Shared utilities (`utils.R`)
 
-**R (v4.3.1):** Seurat (v5), Harmony, presto, MAST, clusterProfiler, msigdbr, ggplot2, patchwork, cowplot, mixtools, lme4
+`utils.R` is sourced at the top of every R notebook via `source('./utils.R')`. It provides:
 
-**Python:** Scrublet, scanpy
+- **Color palettes**: `custom.colors` (12 cell types), `color_scheme` (tissue condition)
+- **`fig.size(h, w)`**: Set notebook output plot dimensions
+- **`load_snRNA_obj()`**: Load the snRNA-seq Seurat object with harmonized cell type labels from the merged dataset
+- **`load_ffpe_obj()`**: Load the FFPE Seurat object with harmonized cell type labels
+- **`load_gene_sets()`**: Download MSigDB Hallmark, KEGG canonical, and GO:BP gene sets; returns a list with `$hallmark` and `$all`
+- **`volcano_plot(markers_ct, tolabel, title, nx, ny)`**: Consistent volcano plot for DE results
+- **`run_GSEA_on_list(markers_list, out_dir, label, gene_set, plot_width)`**: Run GSEA across all cell types in a DE results list and save plots
+- **`run_gsea_analysis(de_results, cell_type, gene_set)`**: Run GSEA for a single cell type
+- **`plot_genes_hex()`** / **`plot_split_hex()`**: Hexbin expression plots on UMAP
+- **`plot_gene_violins()`**: Split violin plots by timepoint
+- **`find_valley()`**: Gaussian mixture model valley detection (used for scrublet thresholding)
+
+## Environment Setup
+
+### R (v4.3.1)
+
+Install required packages:
+
+```r
+install.packages(c("Seurat", "ggplot2", "ggrepel", "data.table", "tidyverse",
+                   "Matrix", "viridis", "lme4", "ggpubr", "ggrastr", "cowplot",
+                   "mixtools", "rstatix", "RColorBrewer", "patchwork", "scales"))
+
+# Bioconductor packages
+if (!requireNamespace("BiocManager")) install.packages("BiocManager")
+BiocManager::install(c("MAST", "SingleCellExperiment", "limma",
+                       "clusterProfiler", "org.Hs.eg.db"))
+
+# GitHub packages
+remotes::install_github("immunogenomics/harmony")
+remotes::install_github("immunogenomics/presto")
+remotes::install_github("satijalab/seurat-wrappers")
+
+# MSigDB gene sets
+install.packages("msigdbr")
+```
+
+### Python (notebook 02 only)
+
+```bash
+pip install scrublet scanpy scipy pandas matplotlib numpy
+```
 
 ## Data Structure
 
-Notebooks expect data in a sibling `_data/` directory with subdirectories for `ffpe/`, `snRNAseq/`, and clinical metadata (`sample_meta_2026.csv`). Raw input is 10X Cell Ranger output (filtered feature-barcode matrices). Intermediate Seurat `.rds` objects are saved between steps.
+Raw data is not committed to this repository. Notebooks expect data in the `_data/` directory:
+
+```
+_data/
+├── ffpe/                          # FFPE Cell Ranger per-sample output directories
+│   └── <run_id>_4plex/<run_id>_multi/outs/per_sample_outs/<sample_id>/
+├── snRNAseq/                      # snRNA-seq Cell Ranger output + souporcell results
+│   ├── <run_id>/outs/filtered_feature_bc_matrix/
+│   └── obj_43854cells_labeled_v2.rds   # generated by 01_Seurat_nuc-seq.ipynb
+├── HTS/                           # Adaptive Biotechnologies TCR-seq rearrangement TSVs
+│   └── CombinedRearrangements_<patient>.tsv
+├── obj_27448cells_labeled_v2.rds  # generated by 01_Seurat_ffpe.ipynb
+├── obj_merged_71302cells_labeled.rds   # generated by 03_merge_datasets_label_cell_types.ipynb
+├── obj_merged_scRNA_labels.csv    # generated by 03_merge_datasets_label_cell_types.ipynb
+├── obj_merged_snRNA_labels.csv    # generated by 03_merge_datasets_label_cell_types.ipynb
+└── sample_meta_2026.csv           # clinical metadata (patient, timepoint, response scores)
+```
+
+Intermediate `.rds` objects are saved between steps so individual notebooks can be re-run without rerunning the full pipeline from scratch.
+
+## Execution Order
+
+```
+02_run_scrublet.ipynb  (Python — run first to generate doublet scores)
+        ↓
+01_Seurat_ffpe.ipynb ──────────────┐
+01_Seurat_nuc-seq.ipynb ───────────┤
+        ↓                          │
+03_merge_datasets_label_cell_types │ (reads both .rds from step above)
+        ↓                          │
+04_Figure1_plots.ipynb             │
+05_DE_LesUntxvsNL_Wk0.ipynb       │ (reads snRNA obj + merged labels)
+06_HTS_*.ipynb                     │ (independent — reads only HTS TSVs)
+07_myeloid_subclusters_TLR.ipynb   │ (reads merged obj)
+08_T_subclusters.ipynb             │ (reads merged obj)
+09_DE_Treated.ipynb                │ (reads FFPE obj + merged labels)
+10_DE_Untreated.ipynb              │ (reads snRNA obj + merged labels)
+```
+
+Notebooks 04–10 are largely independent of each other once step 03 is complete.
