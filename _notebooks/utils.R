@@ -403,7 +403,7 @@ load_snRNA_obj <- function(
 
 # Load FFPE scRNA-seq object with updated cell type labels from the merged dataset.
 load_ffpe_obj <- function(
-    rds_path = '../_data/obj_27448cells_labeled_v2.rds',
+    rds_path = '../_data/ffpe/obj_27448cells_labeled_v2.rds',
     labels_path = '../_data/obj_merged_scRNA_labels.csv'
 ) {
     obj <- readRDS(rds_path)
@@ -420,9 +420,9 @@ load_ffpe_obj <- function(
 # Load MSigDB gene sets (hallmark + KEGG canonical + GO:BP).
 # Returns a list with $hallmark and $all (combined) data frames.
 load_gene_sets <- function() {
-    hallmark  <- msigdbr(species = "Homo sapiens", category = "H")
-    canonical <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
-    go        <- msigdbr(species = "Homo sapiens", category = "C5", subcategory = "GO:BP")
+    hallmark  <- msigdbr(species = "Homo sapiens", collection = "H")
+    canonical <- msigdbr(species = "Homo sapiens", collection = "C2", subcollection = "CP:KEGG_LEGACY")
+    go        <- msigdbr(species = "Homo sapiens", collection = "C5", subcollection = "GO:BP")
 
     all_gene_sets <- rbind(
         hallmark  %>% mutate(collection = "Hallmark"),
@@ -463,12 +463,21 @@ volcano_plot <- function(markers_ct, tolabel, title = '', nx = 1.5, ny = 5) {
 # label:        filename prefix (e.g. "allW8vsW0")
 # gene_set:     msigdbr gene set data frame (use load_gene_sets()$hallmark or $all)
 # plot_width:   width of saved PDF in inches
-run_GSEA_on_list <- function(markers_list, out_dir, label = '', gene_set, plot_width = 9) {
+# n_pos_by_cell_type: optional named list/vector overriding the number of
+#                      top positive-NES bars shown for specific cell types
+#                      (e.g. list(Myeloid = 12)); others default to n_pos
+# n_neg_by_cell_type: same as above but for negative-NES bars
+run_GSEA_on_list <- function(markers_list, out_dir, label = '', gene_set, plot_width = 9,
+                              n_pos = 8, n_neg = 8,
+                              n_pos_by_cell_type = list(), n_neg_by_cell_type = list()) {
     dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
     results_list <- list()
     for (cell_type in names(markers_list)) {
         message(paste("Processing", cell_type))
-        results_list[[cell_type]] <- run_gsea_analysis(markers_list[[cell_type]], cell_type, gene_set)
+        cell_n_pos <- if (!is.null(n_pos_by_cell_type[[cell_type]])) n_pos_by_cell_type[[cell_type]] else n_pos
+        cell_n_neg <- if (!is.null(n_neg_by_cell_type[[cell_type]])) n_neg_by_cell_type[[cell_type]] else n_neg
+        results_list[[cell_type]] <- run_gsea_analysis(markers_list[[cell_type]], cell_type, gene_set,
+                                                         n_pos = cell_n_pos, n_neg = cell_n_neg)
         ggsave(
             filename = file.path(out_dir, paste0(label, "_gsea_plot_", cell_type, ".pdf")),
             plot = results_list[[cell_type]]$plot,
@@ -492,7 +501,8 @@ save_to_csvs <- function(reslist, out_dir) {
 }
 
 # Create a function to run GSEA and create plot for one cell type
-run_gsea_analysis <- function(de_results, cell_type, gene_set) {
+# n_pos, n_neg: number of top pathways to show for positive/negative NES
+run_gsea_analysis <- function(de_results, cell_type, gene_set, n_pos = 8, n_neg = 8) {
     
     # Extract and prepare gene list
     log2fc <- de_results$avg_log2FC
@@ -515,12 +525,12 @@ run_gsea_analysis <- function(de_results, cell_type, gene_set) {
     
     # Get top pathways
     top_pathways <- rbind(
-        gsea_df %>% 
-            filter(Direction == "Up") %>% 
-            top_n(8, wt = abs(NES)),
-        gsea_df %>% 
-            filter(Direction == "Down") %>% 
-            top_n(8, wt = abs(NES))
+        gsea_df %>%
+            filter(Direction == "Up") %>%
+            top_n(n_pos, wt = abs(NES)),
+        gsea_df %>%
+            filter(Direction == "Down") %>%
+            top_n(n_neg, wt = abs(NES))
     )
     
     # Create plot

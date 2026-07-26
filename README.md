@@ -9,7 +9,7 @@ This project analyzes two complementary single-cell RNA-seq datasets from CTCL p
 - **FFPE scRNA-seq**: 10X Chromium Fixed RNA Profiling (Flex) from formalin-fixed paraffin-embedded biopsies of treated lesional skin (Week 0 and Week 8), across 5 patients treated with resiquimod 0.03% or 0.06%
 - **Single-nucleus RNA-seq (snRNA-seq)**: 10X Chromium snRNA-seq from fresh-frozen biopsies of untreated lesional and non-lesional skin (Week 0 and Week 24), across 8 patients multiplexed with souporcell for demultiplexing
 
-After quality control and doublet removal, the merged dataset contains ~71,000 cells spanning 12 cell types: keratinocytes (undifferentiated and differentiated), fibroblasts, T cells, myeloid cells, vascular and lymphatic endothelial cells, pericytes, melanocytes, hair follicle cells, mast cells, and B cells.
+After quality control and doublet removal, the merged dataset contains ~71,000 cells spanning 12 cell types: keratinocytes (undifferentiated and differentiated), fibroblasts, T cells, myeloid cells, vascular and lymphatic endothelial cells, pericytes, melanocytes, hair follicle cells, mast cells, and dermal adipocytes.
 
 ## Repository Structure
 
@@ -48,8 +48,8 @@ All notebooks are in `_notebooks/` and are numbered in order of execution. Each 
 | `05_DE_LesUntxvsNL_Wk0.ipynb` | R | Differential expression between untreated lesional and non-lesional skin at baseline (Week 0), with GSEA pathway analysis per cell type |
 | `06a_HTS_responder_status.ipynb` | R | Treatment responder classification using high-throughput TCR sequencing: quantifies malignant T-cell clone abundance changes from Week 0 to Week 8/24 |
 | `06b_HTS_clonal_tracking.ipynb` | R | TCR clonal tracking analysis: benign T-cell recruitment dynamics and correlation with malignant clone clearance |
-| `07_myeloid_subclusters_TLR.ipynb` | R | Myeloid cell subclustering (7 subtypes including TissueMoDCs, cDCs, Langerhans, pDCs) and TLR7/8 expression analysis |
-| `08_T_subclusters.ipynb` | R | T-cell subclustering into 8 subtypes with marker gene characterization |
+| `07_myeloid_subclusters_TLR.ipynb` | R | Myeloid cell subclustering and TLR7/8 expression analysis |
+| `08_T_subclusters.ipynb` | R | T-cell subclustering with marker gene characterization |
 | `09_DE_Treated.ipynb` | R | Differential expression in treated lesions: Week 8 vs. Week 0, responders vs. non-responders comparisons, with GSEA pathway enrichment |
 | `10_DE_Untreated.ipynb` | R | Differential expression in untreated lesional skin over time (Week 0 → Week 24), with GSEA pathway enrichment |
 | `utils.R` | R | Shared helper functions (see below) |
@@ -101,6 +101,11 @@ remotes::install_github("immunogenomics/presto")
 
 # MSigDB gene sets
 install.packages("msigdbr")
+
+#Note
+If you run into the error: "inv(): use of LAPACK must be enabled" when running Harmony, please install Harmony with the fix below (per https://github.com/immunogenomics/harmony/issues/284):
+
+devtools::install_github("pati-ni/harmony", ref="lapack-win-fix", force=TRUE)
 ```
 
 ### Python (notebook 02 only)

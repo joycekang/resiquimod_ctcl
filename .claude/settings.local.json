@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(/opt/anaconda3/envs/resiq/bin/Rscript --slave -e ' *)",
+      "Bash(/opt/anaconda3/envs/resiq/bin/Rscript *)",
+      "Bash(otool -l /opt/anaconda3/envs/resiq/lib/R/lib/libR.dylib)",
+      "Bash(otool -L /opt/anaconda3/envs/resiq/lib/R/lib/libR.dylib)"
+    ]
+  }
+}

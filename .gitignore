@@ -2,6 +2,16 @@
 .ipynb_checkpoints/
 **/.ipynb_checkpoints/
 
+# large raw/processed data files, kept local-only
+_data/
+_results/
+
+# deprecated notebooks, kept local-only
+_notebooks/deprecated/
+
+# generated figures, kept local-only
+_figures/
+
 # renv - commit renv.lock but not the local package cache
 renv/library/
 renv/staging/
